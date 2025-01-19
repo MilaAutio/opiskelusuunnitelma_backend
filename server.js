@@ -9,7 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Yhdistä MongoDB Atlasiin (liitä oma connection stringisi tähän)
+// Connect to database (MongoDB Atlas)
 mongoose.connect('mongodb+srv://milaautio:' + dbPass + '@cluster0.ecmul.mongodb.net/study_planner?retryWrites=true&w=majority&appName=Cluster0', {});
 
 const userSchema = new mongoose.Schema({
@@ -22,32 +22,27 @@ const User = mongoose.model('User', userSchema);
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'secretkey'; // Store in .env file
+const JWT_SECRET = process.env.JWT_SECRET || 'secretkey';
 
 // Register a new user
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    // Check if the username already exists
     const existingUser = await User.findOne({ username });
     if (existingUser) {
       return res.status(400).json({ error: 'Username already exists' });
     }
 
-    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create a new user
     const newUser = new User({ username, password: hashedPassword });
     await newUser.save();
 
-    // Generate JWT token for the new user
     const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, {
       expiresIn: '1h',
     });
 
-    // Send the token back to the frontend
     res.status(201).json({ token });
   } catch (error) {
     console.log(error)
@@ -60,19 +55,16 @@ app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    // Find the user by username
     const user = await User.findOne({ username });
     if (!user) {
       return res.status(400).json({ error: 'Invalid username or password' });
     }
 
-    // Check if the password is correct
-    const isPasswordValid = await bcrypt.compare(password, user.password); // assuming bcrypt for password hashing
+    const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(400).json({ error: 'Invalid username or password' });
     }
 
-    // Generate JWT token
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     res.json({ token });
@@ -81,7 +73,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// Middleware to authenticate user via JWT token
+// Authenticate user via JWT token
 const authenticateToken = (req, res, next) => {
   const token = req.header('Authorization')?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Access denied' });
@@ -115,6 +107,7 @@ app.post('/api/sections', authenticateToken, async (req, res) => {
   }
 });
 
+// Server running on port 5001
 app.listen(5001, () => {
   console.log('Server is running on port 5001');
 });
